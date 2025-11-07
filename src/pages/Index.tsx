@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const Index = () => {
   const [selectedZone, setSelectedZone] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedFeed, setSelectedFeed] = useState<number | null>(null);
 
   const cameraFeeds = [
     {
@@ -14,8 +15,8 @@ const Index = () => {
       zone: "Cooking Area",
       status: "compliant" as const,
       events: [
-        { label: "Handwash Detected", time: "14:23:45", type: "compliant" as const },
-        { label: "Gloves Worn", time: "14:22:18", type: "compliant" as const },
+        { label: "Handwash Detected", time: "14:23:45", type: "compliant" as const, confidence: 98 },
+        { label: "Gloves Worn", time: "14:22:18", type: "compliant" as const, confidence: 95 },
       ],
     },
     {
@@ -23,8 +24,8 @@ const Index = () => {
       zone: "Cooking Area",
       status: "violation" as const,
       events: [
-        { label: "Gloves Missing", time: "14:24:12", type: "violation" as const },
-        { label: "Hairnet Absent", time: "14:20:05", type: "violation" as const },
+        { label: "Gloves Missing", time: "14:24:12", type: "violation" as const, confidence: 92 },
+        { label: "Hairnet Absent", time: "14:20:05", type: "violation" as const, confidence: 89 },
       ],
     },
     {
@@ -32,8 +33,8 @@ const Index = () => {
       zone: "Serving Area",
       status: "compliant" as const,
       events: [
-        { label: "Table Cleaning Started", time: "14:15:30", type: "compliant" as const },
-        { label: "Surface Sanitized", time: "14:17:22", type: "compliant" as const },
+        { label: "Table Cleaning Started", time: "14:15:30", type: "compliant" as const, confidence: 96 },
+        { label: "Surface Sanitized", time: "14:17:22", type: "compliant" as const, confidence: 94 },
       ],
     },
     {
@@ -41,11 +42,21 @@ const Index = () => {
       zone: "Serving Area",
       status: "warning" as const,
       events: [
-        { label: "Table Cleaning Delayed", time: "14:10:15", type: "warning" as const },
-        { label: "Staff Hand Hygiene Pending", time: "14:09:42", type: "warning" as const },
+        { label: "Table Cleaning Delayed", time: "14:10:15", type: "warning" as const, confidence: 88 },
+        { label: "Staff Hand Hygiene Pending", time: "14:09:42", type: "warning" as const, confidence: 91 },
       ],
     },
   ];
+
+  const filteredFeeds = cameraFeeds.filter(feed => {
+    const zoneMatch = selectedZone === "all" || 
+      (selectedZone === "cooking" && feed.zone === "Cooking Area") ||
+      (selectedZone === "serving" && feed.zone === "Serving Area");
+    
+    const statusMatch = selectedStatus === "all" || feed.status === selectedStatus;
+    
+    return zoneMatch && statusMatch;
+  });
 
   const eventDetails = {
     staffId: "EMP-2043",
@@ -76,22 +87,22 @@ const Index = () => {
             
             <div className="flex gap-3">
               <Select value={selectedZone} onValueChange={setSelectedZone}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-52">
                   <SelectValue placeholder="Select Zone" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Zones</SelectItem>
-                  <SelectItem value="cooking">Cooking Area</SelectItem>
-                  <SelectItem value="serving">Serving Area</SelectItem>
+                  <SelectItem value="cooking">Cooking Zone</SelectItem>
+                  <SelectItem value="serving">Serving Zone</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Status" />
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder="Select Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   <SelectItem value="compliant">Compliant</SelectItem>
                   <SelectItem value="violation">Violation</SelectItem>
                   <SelectItem value="warning">Warning</SelectItem>
@@ -104,15 +115,35 @@ const Index = () => {
         {/* Camera Grid */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-2 gap-6 max-w-7xl mx-auto">
-            {cameraFeeds.map((feed, idx) => (
-              <CameraFeed key={idx} {...feed} />
+            {filteredFeeds.map((feed, idx) => (
+              <CameraFeed 
+                key={idx} 
+                {...feed} 
+                onClick={() => setSelectedFeed(idx)}
+              />
             ))}
           </div>
+          {filteredFeeds.length === 0 && (
+            <div className="flex items-center justify-center h-64">
+              <p className="text-muted-foreground">No camera feeds match the selected filters</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Right Panel */}
-      <EventDetails {...eventDetails} />
+      {selectedFeed !== null && filteredFeeds[selectedFeed] && (
+        <EventDetails 
+          staffId={`CAM-${selectedFeed + 1}`}
+          zone={filteredFeeds[selectedFeed].location}
+          complianceScore={filteredFeeds[selectedFeed].status === "compliant" ? 96 : filteredFeeds[selectedFeed].status === "warning" ? 78 : 45}
+          recentEvents={filteredFeeds[selectedFeed].events.map(e => ({
+            time: e.time,
+            event: e.label,
+            status: e.type
+          }))}
+        />
+      )}
     </div>
   );
 };
